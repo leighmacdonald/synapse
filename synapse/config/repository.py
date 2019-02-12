@@ -143,6 +143,7 @@ class ContentRepositoryConfig(Config):
         self.thumbnail_requirements = parse_thumbnail_requirements(
             config["thumbnail_sizes"]
         )
+        self.url_preview_domain_whitelist_enabled = config.get("url_preview_domain_whitelist_enabled", False)
         self.url_preview_enabled = config.get("url_preview_enabled", False)
         if self.url_preview_enabled:
             try:
