@@ -34,6 +34,7 @@ from twisted.internet import defer
 from twisted.web.resource import Resource
 from twisted.web.server import NOT_DONE_YET
 
+from synapse import custom
 from synapse.api.errors import Codes, SynapseError
 from synapse.http.client import SimpleHttpClient
 from synapse.http.server import (
@@ -80,6 +81,7 @@ class PreviewUrlResource(Resource):
         self.media_storage = media_storage
 
         self.url_preview_url_blacklist = hs.config.url_preview_url_blacklist
+        self.url_preview_domain_whitelist_enabled = hs.config.url_preview_domain_whitelist_enabled
 
         # memory cache mapping urls to an ObservableDeferred returning
         # JSON-encoded OG metadata
@@ -115,6 +117,15 @@ class PreviewUrlResource(Resource):
 
         # XXX: we could move this into _do_preview if we wanted.
         url_tuple = urlparse.urlsplit(url)
+        if not custom.is_host_listed(url_tuple.netloc):
+            logger.warning(
+                "Domain %s blocked by server, ask #support for adding to the whitelist", url
+            )
+            raise SynapseError(
+                403, "Domain blocked by missing domain whitelist entry",
+                Codes.UNKNOWN
+            )
+
         for entry in self.url_preview_url_blacklist:
             match = True
             for attrib in entry:
@@ -330,7 +341,7 @@ class PreviewUrlResource(Resource):
                 raise
             except Exception as e:
                 # FIXME: pass through 404s and other error messages nicely
-                logger.warn("Error downloading %s: %r", url, e)
+                logger.warning("Error downloading %s: %r", url, e)
                 raise SynapseError(
                     500, "Failed to download content: %s" % (
                         traceback.format_exception_only(sys.exc_info()[0], e),
